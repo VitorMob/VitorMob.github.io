@@ -1,0 +1,26 @@
+# SEO Values
+title: Moblog
+tagline: 100%
+description: Neste blog, irei abordar temas que envolve Engenharia Reversa é Programação baixo nivel. 
+twitter: https://twitter.com/Vitor_Mob
+email: mobhacking100@gmail.com
+logo: assets/images/mob-logo.png
+
+show_header: false
+
+# Google Analytics ID
+google_analytics:
+
+# GitHub Values
+github:
+  owner_name: VitorMob
+  owner_url: https://github.com/VitorMob
+
+
+remote_theme: "dracula/gh-pages"
+
+sass:
+    style: compressed
+
+plugins:
+  - jekyll-seo-tag
