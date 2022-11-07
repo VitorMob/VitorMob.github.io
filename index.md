@@ -1,26 +1,25 @@
 ---
 layout: default
+show_header: true
 ---
 
 ## Sobre
-
-  Neste blog, irei fazer o possivel para postar semanalmente um artigo novo sobre Engenharia Reversa é Programação baixo nivel. 
-Aceito sugestões sobre assuntos para abordar no meu blog, basta entrar em [contato](#contatos).
+  Me chamo Vitor, conhecido como Mob, tenho como intuito trazer conhecimento e aprender cada vez mais, e com esse blog,
+  irei fazer o possivel para postar semanalmente um artigo novo sobre Engenharia Reversa é Programação baixo nivel. Aceito 
+  sugestões sobre assuntos para abordar, basta entrar em [contato](#contatos).
 
 ---
 
 ## Tópicos
-  + [Artigos](samples/)
+  + [Artigos](samples/) : 
     + [Engenharia-Reversa](samples/articles/reverse-enginner)
-      > N/S
     + [C/C++](samples/articles/c-cplusplus)
-      > N/S
 
-  + [Projetos - github](https://github.com/VitorMob?tab=repositories)
-    + [Elfparser-ng](https://github.com/mentebinaria/elfparser-ng)
+  + [Projetos - github](https://github.com/VitorMob?tab=repositories) :
+    + [elfparser-ng](https://github.com/mentebinaria/elfparser-ng)
     + [maProc](https://github.com/mentebinaria/maProc)
-    + [Intel-8080-Emulator](https://github.com/VitorMob/Intel8080-library)
-    + [Arena-Allocator](https://github.com/VitorMob/ArenaAllocator)
+    + [intel-8080-emulator](https://github.com/VitorMob/Intel8080-library)
+    + [arena-allocator](https://github.com/VitorMob/ArenaAllocator)
     
 ---
 

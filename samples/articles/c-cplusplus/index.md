@@ -3,4 +3,4 @@ layout: listings
 colorspace: yellow
 ---
 
-* N/S
+## N/A

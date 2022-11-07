@@ -1,12 +1,10 @@
 ---
-layout: listings
+layout: topics
 colorspace: purple
 ---
 
 
-## [Engenharia Reversa](articles/reverse-enginner)
-* N/S
+## [+ Engenharia Reversa](articles/reverse-enginner) 
+## [+ C/C++](articles/c-cplusplus) 
 
-
-## [C/C++](articles/c-cplusplus) 
-* N/S
+<br>

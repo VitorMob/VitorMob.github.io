@@ -1,6 +1,10 @@
 ---
 layout: listings
 colorspace: orange
+
 ---
 
-* N/S
+
+### [+ Stripped-binaries](stripped-binaries)
+
+<br>

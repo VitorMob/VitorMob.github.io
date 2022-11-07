@@ -1,0 +1,900 @@
+<!doctype html>
+<html lang="en-US">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+
+<!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Moblog | 100%</title>
+<meta name="generator" content="Jekyll v4.3.1" />
+<meta property="og:title" content="Moblog" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Neste blog, irei abordar temas que envolve Engenharia Reversa é Programação baixo nivel." />
+<meta property="og:description" content="Neste blog, irei abordar temas que envolve Engenharia Reversa é Programação baixo nivel." />
+<link rel="canonical" href="http://localhost:4000/samples/articles/reverse-enginner/stripped-binaries/" />
+<meta property="og:url" content="http://localhost:4000/samples/articles/reverse-enginner/stripped-binaries/" />
+<meta property="og:site_name" content="Moblog" />
+<meta property="og:type" content="website" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Moblog" />
+<meta name="twitter:site" content="@" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebPage","description":"Neste blog, irei abordar temas que envolve Engenharia Reversa é Programação baixo nivel.","headline":"Moblog","publisher":{"@type":"Organization","logo":{"@type":"ImageObject","url":"http://localhost:4000/assets/images/mob-logo.png"}},"url":"http://localhost:4000/samples/articles/reverse-enginner/stripped-binaries/"}</script>
+<!-- End Jekyll SEO tag -->
+
+    <link rel="stylesheet" href="/assets/css/style.css?v=">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+    <script src="/assets/js/respond.js"></script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <!--[if lt IE 8]>
+    <link rel="stylesheet" href="/assets/css/ie.css">
+    <![endif]-->
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  </head>
+
+  <body class="">
+      
+
+    <div class="wrapper">
+      <section class="no-header">
+        <div id="title">
+          
+        
+        </div>
+
+        <h1 id="stripped-binaries">Stripped Binaries</h1>
+<p><br /></p>
+
+<blockquote>
+  <p>Author: VitorMob</p>
+</blockquote>
+
+<blockquote>
+  <p>Data: 18/03/2022</p>
+</blockquote>
+
+<hr />
+
+<p>Nesse artigo irei abordar o tema stripped binaries, de acordo com meus estudos e pesquisas feitos atualmente em relação ao formato <a href="https://en.wikipedia.org/wiki/Executable_and_Linkable_Format">ELF 
+(Executable and Linkable Format)</a>, não irei abordar outros formatos. como exemplo 
+<a href="https://pt.wikipedia.org/wiki/Portable_Executable">PE (Portable Executable)</a>. Para compreenção deste artigo irei utilizar a <a href="https://pt.wikipedia.org/wiki/C_(linguagem_de_programa%C3%A7%C3%A3o)">linguagem  C</a> para ilustração de codigos e binários compilados. Irei disponibilizar um livro  no qual tem como foco principal analisar binários ELF e PE, e um curso sobre Programação moderna em C feito pelo mente binaria totalmente gratuito.</p>
+
+<p>Em relação aos meus estudos, analisar binário para Engenharia Reversa e Analise de Malware, tem com foco principal buscar por referências de funções entre outros symbols para ajudar a entender o disassembly e o fluxo que o código esta tomando, é podemos consegui-las  através do <a href="https://docs.oracle.com/cd/E23824_01/html/819-0690/chapter6-79797.html">Symbol Table Section</a>, que o compilador ira gerar para fornecer informações basicas ao linker, para binários ELF os symbols para debbuger normalmente são gerados através do <a href="https://en.wikipedia.org/wiki/DWARF">DWARF</a>. No caso do PE os symbols são gerados através do <a href="https://learn.microsoft.com/pt-br/visualstudio/debugger/specify-symbol-dot-pdb-and-source-files-in-the-visual-studio-debugger?view=vs-2022">PDB (Microsoft Portable Debugging)</a>, geralmente os symbols para debbuger em relação ao DWARF é inserido no binário, enquanto que o formato PDB é tipicamente gerado em um arquivo separado. é por esse motivo não irei citar o formato PE novamente neste artigo.</p>
+
+<p>Vamos partir para uma demonstração de um código basico escrito na linguagem C, que tem como foco, um simples <code class="language-plaintext highlighter-rouge">Hello, World</code>:</p>
+
+<p><code class="language-plaintext highlighter-rouge">compiler : gcc -o main main.c</code></p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="c1"> </span><span class="cp">
+</span>
+<span class="kt">int</span> <span class="nf">main</span><span class="p">(</span> <span class="kt">void</span> <span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">puts</span><span class="p">(</span><span class="err">“</span><span class="n">Hello</span><span class="p">,</span> <span class="n">World</span><span class="err">”</span><span class="p">);</span>
+    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span> 
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">execute : readelf  —syms main </code></p>
+
+<blockquote>
+  <p>output:</p>
+</blockquote>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: left">Num</th>
+      <th style="text-align: left">Value</th>
+      <th style="text-align: left">Size</th>
+      <th style="text-align: left">Type</th>
+      <th style="text-align: left">Bind</th>
+      <th style="text-align: left">Vis</th>
+      <th style="text-align: left">Ndx</th>
+      <th style="text-align: left">Name</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: left">0</td>
+      <td style="text-align: left">0000000000000000</td>
+      <td style="text-align: left">0</td>
+      <td style="text-align: left">NOTYPE</td>
+      <td style="text-align: left">LOCAL</td>
+      <td style="text-align: left">DEFAULT</td>
+      <td style="text-align: left">UND</td>
+      <td style="text-align: left"> </td>
+    </tr>
+    <tr>
+      <td style="text-align: left">1</td>
+      <td style="text-align: left">0000000000000000</td>
+      <td style="text-align: left">0</td>
+      <td style="text-align: left">FILE</td>
+      <td style="text-align: left">LOCAL</td>
+      <td style="text-align: left">DEFAULT</td>
+      <td style="text-align: left">ABS</td>
+      <td style="text-align: left">abi-note.c</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">2</td>
+      <td style="text-align: left">000000000000039c</td>
+      <td style="text-align: left">32</td>
+      <td style="text-align: left">OBJECT</td>
+      <td style="text-align: left">LOCAL</td>
+      <td style="text-align: left">DEFAULT</td>
+      <td style="text-align: left">4</td>
+      <td style="text-align: left">__abi_tag</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">3</td>
+      <td style="text-align: left">0000000000000000</td>
+      <td style="text-align: left">0</td>
+      <td style="text-align: left">FILE</td>
+      <td style="text-align: left">LOCAL</td>
+      <td style="text-align: left">DEFAULT</td>
+      <td style="text-align: left">ABS</td>
+      <td style="text-align: left">init.c</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">4</td>
+      <td style="text-align: left">0000000000000000</td>
+      <td style="text-align: left">0</td>
+      <td style="text-align: left">FILE</td>
+      <td style="text-align: left">LOCAL</td>
+      <td style="text-align: left">DEFAULT</td>
+      <td style="text-align: left">ABS</td>
+      <td style="text-align: left">crtstuff.c</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">5</td>
+      <td style="text-align: left">0000000000001070</td>
+      <td style="text-align: left">0</td>
+      <td style="text-align: left">FUNC</td>
+      <td style="text-align: left">LOCAL</td>
+      <td style="text-align: left">DEFAULT</td>
+      <td style="text-align: left">14</td>
+      <td style="text-align: left">deregister_tm_clones</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">6</td>
+      <td style="text-align: left">00000000000010a0</td>
+      <td style="text-align: left">0</td>
+      <td style="text-align: left">FUNC</td>
+      <td style="text-align: left">LOCAL</td>
+      <td style="text-align: left">DEFAULT</td>
+      <td style="text-align: left">14</td>
+      <td style="text-align: left">register_tm_clones</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">7</td>
+      <td style="text-align: left">00000000000010e0</td>
+      <td style="text-align: left">0</td>
+      <td style="text-align: left">FUNC</td>
+      <td style="text-align: left">LOCAL</td>
+      <td style="text-align: left">DEFAULT</td>
+      <td style="text-align: left">14</td>
+      <td style="text-align: left">__do_global_dtors_aux</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">8</td>
+      <td style="text-align: left">0000000000004030</td>
+      <td style="text-align: left">1</td>
+      <td style="text-align: left">OBJECT</td>
+      <td style="text-align: left">LOCAL</td>
+      <td style="text-align: left">DEFAULT</td>
+      <td style="text-align: left">25</td>
+      <td style="text-align: left">completed.0</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">9</td>
+      <td style="text-align: left">0000000000003df0</td>
+      <td style="text-align: left">0</td>
+      <td style="text-align: left">OBJECT</td>
+      <td style="text-align: left">LOCAL</td>
+      <td style="text-align: left">DEFAULT</td>
+      <td style="text-align: left">20</td>
+      <td style="text-align: left">__do_global_dtor[…]</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">10</td>
+      <td style="text-align: left">0000000000001130</td>
+      <td style="text-align: left">0</td>
+      <td style="text-align: left">FUNC</td>
+      <td style="text-align: left">LOCAL</td>
+      <td style="text-align: left">DEFAULT</td>
+      <td style="text-align: left">14</td>
+      <td style="text-align: left">frame_dummy</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">11</td>
+      <td style="text-align: left">0000000000003de8</td>
+      <td style="text-align: left">0</td>
+      <td style="text-align: left">OBJECT</td>
+      <td style="text-align: left">LOCAL</td>
+      <td style="text-align: left">DEFAULT</td>
+      <td style="text-align: left">19</td>
+      <td style="text-align: left">__frame_dummy_in[…]</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">12</td>
+      <td style="text-align: left">0000000000000000</td>
+      <td style="text-align: left">0</td>
+      <td style="text-align: left">FILE</td>
+      <td style="text-align: left">LOCAL</td>
+      <td style="text-align: left">DEFAULT</td>
+      <td style="text-align: left">ABS</td>
+      <td style="text-align: left">main.c</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">13</td>
+      <td style="text-align: left">0000000000000000</td>
+      <td style="text-align: left">0</td>
+      <td style="text-align: left">FILE</td>
+      <td style="text-align: left">LOCAL</td>
+      <td style="text-align: left">DEFAULT</td>
+      <td style="text-align: left">ABS</td>
+      <td style="text-align: left">crtstuff.c</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">14</td>
+      <td style="text-align: left">00000000000020b0</td>
+      <td style="text-align: left">0</td>
+      <td style="text-align: left">OBJECT</td>
+      <td style="text-align: left">LOCAL</td>
+      <td style="text-align: left">DEFAULT</td>
+      <td style="text-align: left">18</td>
+      <td style="text-align: left"><strong>FRAME_END</strong></td>
+    </tr>
+    <tr>
+      <td style="text-align: left">15</td>
+      <td style="text-align: left">0000000000000000</td>
+      <td style="text-align: left">0</td>
+      <td style="text-align: left">FILE</td>
+      <td style="text-align: left">LOCAL</td>
+      <td style="text-align: left">DEFAULT</td>
+      <td style="text-align: left">ABS</td>
+      <td style="text-align: left"> </td>
+    </tr>
+    <tr>
+      <td style="text-align: left">16</td>
+      <td style="text-align: left">0000000000003df8</td>
+      <td style="text-align: left">0</td>
+      <td style="text-align: left">OBJECT</td>
+      <td style="text-align: left">LOCAL</td>
+      <td style="text-align: left">DEFAULT</td>
+      <td style="text-align: left">21</td>
+      <td style="text-align: left">_DYNAMIC</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">17</td>
+      <td style="text-align: left">0000000000002014</td>
+      <td style="text-align: left">0</td>
+      <td style="text-align: left">NOTYPE</td>
+      <td style="text-align: left">LOCAL</td>
+      <td style="text-align: left">DEFAULT</td>
+      <td style="text-align: left">17</td>
+      <td style="text-align: left">__GNU_EH_FRAME_HDR</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">18</td>
+      <td style="text-align: left">0000000000004000</td>
+      <td style="text-align: left">0</td>
+      <td style="text-align: left">OBJECT</td>
+      <td style="text-align: left">LOCAL</td>
+      <td style="text-align: left">DEFAULT</td>
+      <td style="text-align: left">23</td>
+      <td style="text-align: left"><em>GLOBAL_OFFSET_TABLE</em></td>
+    </tr>
+    <tr>
+      <td style="text-align: left">19</td>
+      <td style="text-align: left">0000000000000000</td>
+      <td style="text-align: left">0</td>
+      <td style="text-align: left">FUNC</td>
+      <td style="text-align: left">GLOBAL</td>
+      <td style="text-align: left">DEFAULT</td>
+      <td style="text-align: left">UND</td>
+      <td style="text-align: left">__libc_start_mai[…]</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">20</td>
+      <td style="text-align: left">0000000000000000</td>
+      <td style="text-align: left">0</td>
+      <td style="text-align: left">NOTYPE</td>
+      <td style="text-align: left">WEAK</td>
+      <td style="text-align: left">DEFAULT</td>
+      <td style="text-align: left">UND</td>
+      <td style="text-align: left">_ITM_deregisterT[…]</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">21</td>
+      <td style="text-align: left">0000000000004020</td>
+      <td style="text-align: left">0</td>
+      <td style="text-align: left">NOTYPE</td>
+      <td style="text-align: left">WEAK</td>
+      <td style="text-align: left">DEFAULT</td>
+      <td style="text-align: left">24</td>
+      <td style="text-align: left">data_start</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">22</td>
+      <td style="text-align: left">0000000000000000</td>
+      <td style="text-align: left">0</td>
+      <td style="text-align: left">FUNC</td>
+      <td style="text-align: left">GLOBAL</td>
+      <td style="text-align: left">DEFAULT</td>
+      <td style="text-align: left">UND</td>
+      <td style="text-align: left">puts@GLIBC_2.2.5</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">23</td>
+      <td style="text-align: left">0000000000004030</td>
+      <td style="text-align: left">0</td>
+      <td style="text-align: left">NOTYPE</td>
+      <td style="text-align: left">GLOBAL</td>
+      <td style="text-align: left">DEFAULT</td>
+      <td style="text-align: left">24</td>
+      <td style="text-align: left">_edata</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">24</td>
+      <td style="text-align: left">0000000000001154</td>
+      <td style="text-align: left">0</td>
+      <td style="text-align: left">FUNC</td>
+      <td style="text-align: left">GLOBAL</td>
+      <td style="text-align: left">HIDDEN</td>
+      <td style="text-align: left">15</td>
+      <td style="text-align: left">_fini</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">25</td>
+      <td style="text-align: left">0000000000004020</td>
+      <td style="text-align: left">0</td>
+      <td style="text-align: left">NOTYPE</td>
+      <td style="text-align: left">GLOBAL</td>
+      <td style="text-align: left">DEFAULT</td>
+      <td style="text-align: left">24</td>
+      <td style="text-align: left">__data_start</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">26</td>
+      <td style="text-align: left">0000000000000000</td>
+      <td style="text-align: left">0</td>
+      <td style="text-align: left">NOTYPE</td>
+      <td style="text-align: left">WEAK</td>
+      <td style="text-align: left">DEFAULT</td>
+      <td style="text-align: left">UND</td>
+      <td style="text-align: left"><strong>gmon_start</strong></td>
+    </tr>
+    <tr>
+      <td style="text-align: left">27</td>
+      <td style="text-align: left">0000000000004028</td>
+      <td style="text-align: left">0</td>
+      <td style="text-align: left">OBJECT</td>
+      <td style="text-align: left">GLOBAL</td>
+      <td style="text-align: left">HIDDEN</td>
+      <td style="text-align: left">24</td>
+      <td style="text-align: left">__dso_handle</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">28</td>
+      <td style="text-align: left">0000000000002000</td>
+      <td style="text-align: left">4</td>
+      <td style="text-align: left">OBJECT</td>
+      <td style="text-align: left">GLOBAL</td>
+      <td style="text-align: left">DEFAULT</td>
+      <td style="text-align: left">16</td>
+      <td style="text-align: left">_IO_stdin_used</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">29</td>
+      <td style="text-align: left">0000000000004038</td>
+      <td style="text-align: left">0</td>
+      <td style="text-align: left">NOTYPE</td>
+      <td style="text-align: left">GLOBAL</td>
+      <td style="text-align: left">DEFAULT</td>
+      <td style="text-align: left">25</td>
+      <td style="text-align: left">_end</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">30</td>
+      <td style="text-align: left">0000000000001040</td>
+      <td style="text-align: left">38</td>
+      <td style="text-align: left">FUNC</td>
+      <td style="text-align: left">GLOBAL</td>
+      <td style="text-align: left">DEFAULT</td>
+      <td style="text-align: left">14</td>
+      <td style="text-align: left">_start</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">31</td>
+      <td style="text-align: left">0000000000004030</td>
+      <td style="text-align: left">0</td>
+      <td style="text-align: left">NOTYPE</td>
+      <td style="text-align: left">GLOBAL</td>
+      <td style="text-align: left">DEFAULT</td>
+      <td style="text-align: left">25</td>
+      <td style="text-align: left">__bss_start</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">32</td>
+      <td style="text-align: left">0000000000001139</td>
+      <td style="text-align: left">26</td>
+      <td style="text-align: left">FUNC</td>
+      <td style="text-align: left">GLOBAL</td>
+      <td style="text-align: left">DEFAULT</td>
+      <td style="text-align: left">14</td>
+      <td style="text-align: left">main</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">33</td>
+      <td style="text-align: left">0000000000004030</td>
+      <td style="text-align: left">0</td>
+      <td style="text-align: left">OBJECT</td>
+      <td style="text-align: left">GLOBAL</td>
+      <td style="text-align: left">HIDDEN</td>
+      <td style="text-align: left">24</td>
+      <td style="text-align: left"><strong>TMC_END</strong></td>
+    </tr>
+    <tr>
+      <td style="text-align: left">34</td>
+      <td style="text-align: left">0000000000000000</td>
+      <td style="text-align: left">0</td>
+      <td style="text-align: left">NOTYPE</td>
+      <td style="text-align: left">WEAK</td>
+      <td style="text-align: left">DEFAULT</td>
+      <td style="text-align: left">UND</td>
+      <td style="text-align: left">_ITM_registerTMC[…]</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">35</td>
+      <td style="text-align: left">0000000000000000</td>
+      <td style="text-align: left">0</td>
+      <td style="text-align: left">FUNC</td>
+      <td style="text-align: left">WEAK</td>
+      <td style="text-align: left">DEFAULT</td>
+      <td style="text-align: left">UND</td>
+      <td style="text-align: left">__cxa_finalize@G[…]</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">36</td>
+      <td style="text-align: left">0000000000001000</td>
+      <td style="text-align: left">0</td>
+      <td style="text-align: left">FUNC</td>
+      <td style="text-align: left">GLOBAL</td>
+      <td style="text-align: left">HIDDEN</td>
+      <td style="text-align: left">12</td>
+      <td style="text-align: left">_init</td>
+    </tr>
+  </tbody>
+</table>
+
+<blockquote>
+  <p>Obs: a flag  <code class="language-plaintext highlighter-rouge">—syms</code> ira trazer apenas a tabela de symbols do nosso binário. No caso a <code class="language-plaintext highlighter-rouge">.symtab</code>.</p>
+</blockquote>
+
+<p>Utilizamos uma tool <a href="https://man7.org/linux/man-pages/man1/readelf.1.html">readelf</a> bastante util para parser de ELF, podemos obter variadas informações em relação ao binário, 
+ <code class="language-plaintext highlighter-rouge">Section Headers, Program Header …</code> porém esse não é o nosso foco no momento. apenas obtemos as informações da nossa section <code class="language-plaintext highlighter-rouge">.symtab</code>. No canto esquerdo chamado <code class="language-plaintext highlighter-rouge">Value</code> podemos 
+visualizar o offset, em seguida ele nós traz a informação do que se trata cada symbol, podemos notar o symbol <strong>(32)</strong> offset <code class="language-plaintext highlighter-rouge">0000000000001139</code> Name <code class="language-plaintext highlighter-rouge">main</code> com o Type <code class="language-plaintext highlighter-rouge">FUNC</code> 
+ou seja este symbol se trata de uma função, percebe-se que ele entraga o tamanho  da nossa main no campo <code class="language-plaintext highlighter-rouge">Size</code> contendo <code class="language-plaintext highlighter-rouge">26 bytes</code>, preste bastante atenção, percebe-se que o offset do nosso symbol <strong>(22)</strong> Name <code class="language-plaintext highlighter-rouge">puts@GLIBC_2.2.5</code> ainda não foi resolvido, porque o linker precisa resolver em load time, isso ocorre porque o nosso binário esta linkado dinamicamente com a biblioteca, não irei entrar em detalhes em relação a linkagem.</p>
+
+<blockquote>
+  <p>Recomendo fazer proveito do <a href="https://man7.org/linux/man-pages/man5/elf.5.html">manpages</a> no tópico <code class="language-plaintext highlighter-rouge">elf</code> para verificar o que cada symbol representa no nosso binário.</p>
+</blockquote>
+
+<p>Por padrão o <a href="https://man7.org/linux/man-pages/man1/gcc.1.html">gcc</a> faz a chamada para o linker <a href="https://linux.die.net/man/1/ld">ld</a>, é entrega o binário perfeito para ser executado, porém ele não faz a chamada do <a href="https://man7.org/linux/man-pages/man1/strip.1.html">strip</a> no qual tende a remover os symbols do nosso binário, podemos verificar o tamanho do nosso binário em bytes usando o <a href="https://man7.org/linux/man-pages/man1/du.1.html">du</a> um utilitário linux para estimar o uso do espaço no arquivo.</p>
+
+<p><code class="language-plaintext highlighter-rouge">execute : du -b main</code></p>
+<blockquote>
+  <p>output :</p>
+</blockquote>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>15936  main
+</code></pre></div></div>
+<blockquote>
+  <p>Obs: a flag <code class="language-plaintext highlighter-rouge">-b</code> irá trazer a contagem em bytes, équivale para <code class="language-plaintext highlighter-rouge">--apparent-size --block-size=1</code>.</p>
+</blockquote>
+
+<p>Podemos notar que o nosso binário executavel esta com <code class="language-plaintext highlighter-rouge">15936b</code>, lembrando, o nosso binário, não esta stripped ou seja, todos os symbols mostrado acima, esta no nosso binário, acarretando assim em um binário mais robusto, podemos obter informações bastante interessantes em relação a nossa section <code class="language-plaintext highlighter-rouge">.symtab</code>. Vamos dar uma conferida nas <code class="language-plaintext highlighter-rouge">relocs</code> que informa ao linker para resolver as referencias tanto para chamadas de funções ou ponteiros para string. Vamos conferir utilizando novamente o nosso <code class="language-plaintext highlighter-rouge">readelf</code>.</p>
+
+<p><code class="language-plaintext highlighter-rouge">execute: readelf —relocs main</code></p>
+
+<blockquote>
+  <p>output:</p>
+</blockquote>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: left">Offset</th>
+      <th style="text-align: left">Info</th>
+      <th style="text-align: left">Type</th>
+      <th style="text-align: left">Sym. Value</th>
+      <th style="text-align: left">Sym. Name + Addend</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: left">000000004018</td>
+      <td style="text-align: left">000300000007</td>
+      <td style="text-align: left">R_X86_64_JUMP_SLO</td>
+      <td style="text-align: left">0000000000000000</td>
+      <td style="text-align: left">puts@GLIBC_2.2.5 + 0</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Iremos obter a nossa chamada para a <code class="language-plaintext highlighter-rouge">puts@GLIBC</code>.</p>
+
+<blockquote>
+  <p><strong>Offset</strong> : <code class="language-plaintext highlighter-rouge">000000004018</code> É o descolamento onde o valor do symbol deve ir.</p>
+</blockquote>
+
+<blockquote>
+  <p><strong>Info</strong> : <code class="language-plaintext highlighter-rouge">000300000007</code> O tipo (termina o cálculo exato depende do arch) e o índice do símbolo na symtab.</p>
+</blockquote>
+
+<blockquote>
+  <p><strong>Type</strong> : <code class="language-plaintext highlighter-rouge">R_X86_64_JUMP_SLO</code> Tipo do símbolo de acordo com a ABI.</p>
+</blockquote>
+
+<blockquote>
+  <p><strong>Sym. Value</strong> :  <code class="language-plaintext highlighter-rouge">0000000000000000</code> O valor Sym é o adendo a ser adicionado à resolução do símbolo</p>
+</blockquote>
+
+<blockquote>
+  <p><strong>Sym. Name + Addend</strong> : <code class="language-plaintext highlighter-rouge">puts@GLIBC_2.2.5 + 0</code> Nome do Sym e adendo - uma impressão bonita do nome do símbolo + adendo.</p>
+</blockquote>
+
+<p>Vamos dar uma olhada no disassembly usando o utilitário <a href="https://man7.org/linux/man-pages/man1/objdump.1.html">objdump</a>.</p>
+
+<p><code class="language-plaintext highlighter-rouge">execute: objdump -M intel -d main</code></p>
+
+<blockquote>
+  <p>output:</p>
+</blockquote>
+
+<div class="language-as highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nx">Disassembly</span> <span class="nx">of</span> <span class="nx">section</span> <span class="p">.</span><span class="nx">init</span><span class="o">:</span>
+
+<span class="mi">0000000000001000</span> <span class="o">&lt;</span><span class="nx">_init</span><span class="o">&gt;:</span>
+    <span class="mi">1000</span><span class="o">:</span>	<span class="nx">f3</span> <span class="mi">0</span><span class="nx">f</span> <span class="mi">1</span><span class="nx">e</span> <span class="nx">fa</span>          	    <span class="nx">endbr64</span> 
+    <span class="mi">1004</span><span class="o">:</span>	<span class="mi">48</span> <span class="mi">83</span> <span class="nx">ec</span> <span class="mi">08</span>          	    <span class="nx">sub</span>    <span class="nx">rsp</span><span class="p">,</span><span class="mh">0x8</span>
+    <span class="mi">1008</span><span class="o">:</span>	<span class="mi">48</span> <span class="mi">8</span><span class="nx">b</span> <span class="mi">05</span> <span class="nx">d9</span> <span class="mi">2</span><span class="nx">f</span> <span class="mi">00</span> <span class="mi">00</span> 	    <span class="nx">mov</span>    <span class="nx">rax</span><span class="p">,</span><span class="nx">QWORD</span> <span class="nx">PTR</span> <span class="p">[</span><span class="nx">rip</span><span class="o">+</span><span class="mh">0x2fd9</span><span class="p">]</span>        <span class="err">#</span> <span class="mi">3</span><span class="nx">fe8</span> <span class="o">&lt;</span><span class="nx">__gmon_start__</span><span class="err">@</span><span class="nx">Base</span><span class="o">&gt;</span>
+    <span class="mi">100</span><span class="nx">f</span><span class="o">:</span>	<span class="mi">48</span> <span class="mi">85</span> <span class="nx">c0</span>                         <span class="nx">test</span>   <span class="nx">rax</span><span class="p">,</span><span class="nx">rax</span>
+    <span class="mi">1012</span><span class="o">:</span>	<span class="mi">74</span> <span class="mi">02</span>                            <span class="nx">je</span>     <span class="mi">1016</span> <span class="o">&lt;</span><span class="nx">_init</span><span class="o">+</span><span class="mh">0x16</span><span class="o">&gt;</span>
+    <span class="mi">1014</span><span class="o">:</span>	<span class="nx">ff</span> <span class="nx">d0</span>                            <span class="nx">call</span>   <span class="nx">rax</span>
+    <span class="mi">1016</span><span class="o">:</span>	<span class="mi">48</span> <span class="mi">83</span> <span class="nx">c4</span> <span class="mi">08</span>          	    <span class="nx">add</span>    <span class="nx">rsp</span><span class="p">,</span><span class="mh">0x8</span>
+    <span class="mi">101</span><span class="nx">a</span><span class="o">:</span>	<span class="nx">c3</span>                               <span class="nx">ret</span>    
+
+<span class="nx">Disassembly</span> <span class="nx">of</span> <span class="nx">section</span> <span class="p">.</span><span class="nx">plt</span><span class="o">:</span>
+
+<span class="mi">0000000000001020</span> <span class="o">&lt;</span><span class="nx">puts</span><span class="err">@</span><span class="nx">plt</span><span class="mi">-0</span><span class="nx">x10</span><span class="o">&gt;:</span>
+    <span class="mi">1020</span><span class="o">:</span>	<span class="nx">ff</span> <span class="mi">35</span> <span class="nx">e2</span> <span class="mi">2</span><span class="nx">f</span> <span class="mi">00</span> <span class="mi">00</span>    	    <span class="nx">push</span>   <span class="nx">QWORD</span> <span class="nx">PTR</span> <span class="p">[</span><span class="nx">rip</span><span class="o">+</span><span class="mh">0x2fe2</span><span class="p">]</span>        <span class="err">#</span> <span class="mi">4008</span> <span class="o">&lt;</span><span class="nx">_GLOBAL_OFFSET_TABLE_</span><span class="o">+</span><span class="mh">0x8</span><span class="o">&gt;</span>
+    <span class="mi">1026</span><span class="o">:</span>	<span class="nx">ff</span> <span class="mi">25</span> <span class="nx">e4</span> <span class="mi">2</span><span class="nx">f</span> <span class="mi">00</span> <span class="mi">00</span>    	    <span class="nx">jmp</span>    <span class="nx">QWORD</span> <span class="nx">PTR</span> <span class="p">[</span><span class="nx">rip</span><span class="o">+</span><span class="mh">0x2fe4</span><span class="p">]</span>        <span class="err">#</span> <span class="mi">4010</span> <span class="o">&lt;</span><span class="nx">_GLOBAL_OFFSET_TABLE_</span><span class="o">+</span><span class="mh">0x10</span><span class="o">&gt;</span>
+    <span class="mi">102</span><span class="nx">c</span><span class="o">:</span>	<span class="mi">0</span><span class="nx">f</span> <span class="mi">1</span><span class="nx">f</span> <span class="mi">40</span> <span class="mi">00</span>          	    <span class="nx">nop</span>    <span class="nx">DWORD</span> <span class="nx">PTR</span> <span class="p">[</span><span class="nx">rax</span><span class="o">+</span><span class="mh">0x0</span><span class="p">]</span>
+
+<span class="mi">0000000000001030</span> <span class="o">&lt;</span><span class="nx">puts</span><span class="err">@</span><span class="nx">plt</span><span class="o">&gt;:</span>
+<span class="p">(</span><span class="mi">3</span><span class="p">)</span> <span class="mi">1030</span><span class="o">:</span>	<span class="nx">ff</span> <span class="mi">25</span> <span class="nx">e2</span> <span class="mi">2</span><span class="nx">f</span> <span class="mi">00</span> <span class="mi">00</span>    	    <span class="nx">jmp</span>    <span class="nx">QWORD</span> <span class="nx">PTR</span> <span class="p">[</span><span class="nx">rip</span><span class="o">+</span><span class="mh">0x2fe2</span><span class="p">]</span>        <span class="err">#</span> <span class="mi">4018</span> <span class="o">&lt;</span><span class="nx">puts</span><span class="err">@</span><span class="nx">GLIBC_2</span><span class="p">.</span><span class="mf">2.5</span><span class="o">&gt;</span>
+    <span class="mi">1036</span><span class="o">:</span>	<span class="mi">68</span> <span class="mi">00</span> <span class="mi">00</span> <span class="mi">00</span> <span class="mi">00</span>       	    <span class="nx">push</span>   <span class="mh">0x0</span>
+    <span class="mi">103</span><span class="nx">b</span><span class="o">:</span>	<span class="nx">e9</span> <span class="nx">e0</span> <span class="nx">ff</span> <span class="nx">ff</span> <span class="nx">ff</span>       	    <span class="nx">jmp</span>    <span class="mi">1020</span> <span class="o">&lt;</span><span class="nx">_init</span><span class="o">+</span><span class="mh">0x20</span><span class="o">&gt;</span>
+
+<span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="nx">Disassembly</span> <span class="nx">of</span> <span class="nx">section</span> <span class="p">.</span><span class="nx">text</span><span class="o">:</span>
+
+<span class="mi">0000000000001040</span> <span class="o">&lt;</span><span class="nx">_start</span><span class="o">&gt;:</span>
+    <span class="mi">1040</span><span class="o">:</span>	<span class="nx">f3</span> <span class="mi">0</span><span class="nx">f</span> <span class="mi">1</span><span class="nx">e</span> <span class="nx">fa</span>          		<span class="nx">endbr64</span> 
+    <span class="mi">1044</span><span class="o">:</span>	<span class="mi">31</span> <span class="nx">ed</span>                		<span class="nx">xor</span>    <span class="nx">ebp</span><span class="p">,</span><span class="nx">ebp</span>
+    <span class="mi">1046</span><span class="o">:</span>	<span class="mi">49</span> <span class="mi">89</span> <span class="nx">d1</span>             		<span class="nx">mov</span>    <span class="nx">r9</span><span class="p">,</span><span class="nx">rdx</span>
+    <span class="mi">1049</span><span class="o">:</span>	<span class="mi">5</span><span class="nx">e</span>                   		<span class="nx">pop</span>    <span class="nx">rsi</span>
+    <span class="mi">104</span><span class="nx">a</span><span class="o">:</span>	<span class="mi">48</span> <span class="mi">89</span> <span class="nx">e2</span>             		<span class="nx">mov</span>    <span class="nx">rdx</span><span class="p">,</span><span class="nx">rsp</span>
+    <span class="mi">104</span><span class="nx">d</span><span class="o">:</span>	<span class="mi">48</span> <span class="mi">83</span> <span class="nx">e4</span> <span class="nx">f0</span>          		<span class="nx">and</span>    <span class="nx">rsp</span><span class="p">,</span><span class="mh">0xfffffffffffffff0</span>
+    <span class="mi">1051</span><span class="o">:</span>	<span class="mi">50</span>                   		<span class="nx">push</span>   <span class="nx">rax</span>
+    <span class="mi">1052</span><span class="o">:</span>	<span class="mi">54</span>                   		<span class="nx">push</span>   <span class="nx">rsp</span>
+    <span class="mi">1053</span><span class="o">:</span>	<span class="mi">45</span> <span class="mi">31</span> <span class="nx">c0</span>             		<span class="nx">xor</span>    <span class="nx">r8d</span><span class="p">,</span><span class="nx">r8d</span>
+    <span class="mi">1056</span><span class="o">:</span>	<span class="mi">31</span> <span class="nx">c9</span>                		<span class="nx">xor</span>    <span class="nx">ecx</span><span class="p">,</span><span class="nx">ecx</span>
+    <span class="mi">1058</span><span class="o">:</span>	<span class="mi">48</span> <span class="mi">8</span><span class="nx">d</span> <span class="mi">3</span><span class="nx">d</span> <span class="nx">da</span> <span class="mi">00</span> <span class="mi">00</span> <span class="mi">00</span> 	          <span class="nx">lea</span>    <span class="nx">rdi</span><span class="p">,[</span><span class="nx">rip</span><span class="o">+</span><span class="mh">0xda</span><span class="p">]</span>         <span class="err">#</span> <span class="mi">1139</span> <span class="o">&lt;</span><span class="nx">main</span><span class="o">&gt;</span>
+    <span class="mi">105</span><span class="nx">f</span><span class="o">:</span>	<span class="nx">ff</span> <span class="mi">15</span> <span class="mi">73</span> <span class="mi">2</span><span class="nx">f</span> <span class="mi">00</span> <span class="mi">00</span>    	          <span class="nx">call</span>   <span class="nx">QWORD</span> <span class="nx">PTR</span> <span class="p">[</span><span class="nx">rip</span><span class="o">+</span><span class="mh">0x2f73</span><span class="p">]</span> <span class="err">#</span> <span class="mi">3</span><span class="nx">fd8</span> <span class="o">&lt;</span><span class="nx">__libc_start_main</span><span class="err">@</span><span class="nx">GLIBC_2</span><span class="p">.</span><span class="mi">34</span><span class="o">&gt;</span>
+    <span class="mi">1065</span><span class="o">:</span>	<span class="nx">f4</span>                   		<span class="nx">hlt</span>    
+    <span class="mi">1066</span><span class="o">:</span>	<span class="mi">66</span> <span class="mi">2</span><span class="nx">e</span> <span class="mi">0</span><span class="nx">f</span> <span class="mi">1</span><span class="nx">f</span> <span class="mi">84</span> <span class="mi">00</span> <span class="mi">00</span> 	          <span class="nx">cs</span> <span class="nx">nop</span> <span class="nx">WORD</span> <span class="nx">PTR</span> <span class="p">[</span><span class="nx">rax</span><span class="o">+</span><span class="nx">rax</span><span class="o">*</span><span class="mi">1</span><span class="o">+</span><span class="mh">0x0</span><span class="p">]</span>
+    <span class="mi">106</span><span class="nx">d</span><span class="o">:</span>	<span class="mi">00</span> <span class="mi">00</span> <span class="mi">00</span> 
+
+<span class="p">...</span>
+
+<span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="mi">0000000000001139</span> <span class="o">&lt;</span><span class="nx">main</span><span class="o">&gt;:</span>
+    <span class="mi">1139</span><span class="o">:</span>	<span class="mi">55</span>                   		<span class="nx">push</span>   <span class="nx">rbp</span>
+    <span class="mi">113</span><span class="nx">a</span><span class="o">:</span>	<span class="mi">48</span> <span class="mi">89</span> <span class="nx">e5</span>             		<span class="nx">mov</span>    <span class="nx">rbp</span><span class="p">,</span><span class="nx">rsp</span>
+    <span class="mi">113</span><span class="nx">d</span><span class="o">:</span>	<span class="mi">48</span> <span class="mi">8</span><span class="nx">d</span> <span class="mi">05</span> <span class="nx">c0</span> <span class="mi">0</span><span class="nx">e</span> <span class="mi">00</span> <span class="mi">00</span> 	          <span class="nx">lea</span>    <span class="nx">rax</span><span class="p">,[</span><span class="nx">rip</span><span class="o">+</span><span class="mh">0xec0</span><span class="p">]</span>        <span class="err">#</span> <span class="mi">2004</span> <span class="o">&lt;</span><span class="nx">_IO_stdin_used</span><span class="o">+</span><span class="mh">0x4</span><span class="o">&gt;</span>
+    <span class="mi">1144</span><span class="o">:</span>	<span class="mi">48</span> <span class="mi">89</span> <span class="nx">c7</span>             		<span class="nx">mov</span>    <span class="nx">rdi</span><span class="p">,</span><span class="nx">rax</span>
+    <span class="mi">1147</span><span class="o">:</span>	<span class="nx">e8</span> <span class="nx">e4</span> <span class="nx">fe</span> <span class="nx">ff</span> <span class="nx">ff</span>       		<span class="nx">call</span>   <span class="mi">1030</span> <span class="o">&lt;</span><span class="nx">puts</span><span class="err">@</span><span class="nx">plt</span><span class="o">&gt;</span>
+    <span class="mi">114</span><span class="nx">c</span><span class="o">:</span>	<span class="nx">b8</span> <span class="mi">00</span> <span class="mi">00</span> <span class="mi">00</span> <span class="mi">00</span>       	          <span class="nx">mov</span>    <span class="nx">eax</span><span class="p">,</span><span class="mh">0x0</span>
+    <span class="mi">1151</span><span class="o">:</span>	<span class="mi">5</span><span class="nx">d</span>                   		<span class="nx">pop</span>    <span class="nx">rbp</span>
+    <span class="mi">1152</span><span class="o">:</span>	<span class="nx">c3</span>                   		<span class="nx">ret</span>    
+</code></pre></div></div>
+
+<blockquote>
+  <p>Obs: as flag <code class="language-plaintext highlighter-rouge">-d</code> ira trazer o disassembly do nosso binário, a flag <code class="language-plaintext highlighter-rouge">–M</code> especifica qual alvo o disassembly deve formatar, neste caso intel.</p>
+</blockquote>
+
+<p>Ele nós traz algumas outras sections que eu não irei entrar em detalhes aqui, porém a section <strong>(1)</strong><code class="language-plaintext highlighter-rouge">.text</code> responsavel por conter o nosso codigo executavel, localiza-se no  offset <code class="language-plaintext highlighter-rouge">105f</code> uma chamada a função que ficará responsavel por inicializar a nossa função <strong>(2)</strong><code class="language-plaintext highlighter-rouge">main</code>. O disassembly gerado identificou qual symbol se trata a chamada <code class="language-plaintext highlighter-rouge">__libc_start_main@GLIBC_2.34</code>.</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">int</span> <span class="nf">__libc_start_main</span><span class="p">(</span><span class="kt">int</span> <span class="o">*</span><span class="p">(</span><span class="n">main</span><span class="p">)</span> <span class="p">(</span><span class="kt">int</span><span class="p">,</span> <span class="kt">char</span> <span class="o">*</span> <span class="o">*</span><span class="p">,</span> <span class="kt">char</span> <span class="o">*</span> <span class="o">*</span><span class="p">),</span> 
+                      <span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">*</span> <span class="o">*</span> <span class="n">ubp_av</span><span class="p">,</span> 
+                      <span class="kt">void</span> <span class="p">(</span><span class="o">*</span><span class="n">init</span><span class="p">)</span> <span class="p">(</span><span class="kt">void</span><span class="p">),</span> 
+                      <span class="kt">void</span> <span class="p">(</span><span class="o">*</span><span class="n">fini</span><span class="p">)</span> <span class="p">(</span><span class="kt">void</span><span class="p">),</span> 
+                      <span class="kt">void</span> <span class="p">(</span><span class="o">*</span><span class="n">rtld_fini</span><span class="p">)</span> <span class="p">(</span><span class="kt">void</span><span class="p">),</span> 
+                      <span class="kt">void</span> <span class="p">(</span><span class="o">*</span> <span class="n">stack_end</span><span class="p">));</span>
+</code></pre></div></div>
+<p>As principais funções da <code class="language-plaintext highlighter-rouge">__libc_start_main</code> é :</p>
+
+<blockquote>
+  <p>Chama os construtores e destruidores do nosso programa</p>
+</blockquote>
+
+<blockquote>
+  <p>Chama main() com os argumentos corretos</p>
+</blockquote>
+
+<blockquote>
+  <p>Chama exit() com o valor de retorno de main.</p>
+</blockquote>
+
+<blockquote>
+  <p>Verifique se o uid efetivo == uid real (por motivos de segurança)</p>
+</blockquote>
+
+<p>Então ja temos noção que a <code class="language-plaintext highlighter-rouge">main</code> é passada por parametro para a função  <code class="language-plaintext highlighter-rouge">__libc_start_main</code>, podemos notar o offset da nossa <code class="language-plaintext highlighter-rouge">main</code> sendo passada como parametro, no offset <code class="language-plaintext highlighter-rouge">1058</code>. Vamos para o offset <code class="language-plaintext highlighter-rouge">0000000000001139</code> onde se encontra a nossa <code class="language-plaintext highlighter-rouge">main</code>, visualizando a nossa <code class="language-plaintext highlighter-rouge">main</code> podemos notar que no offset <code class="language-plaintext highlighter-rouge">1147</code>, faz uma chamada para o nosso <code class="language-plaintext highlighter-rouge">&lt;puts@plt&gt;</code>, perceba o disassembly <code class="language-plaintext highlighter-rouge">call 1030</code>, o linker refere-se a chamada para o puts na section <strong>(3)</strong><code class="language-plaintext highlighter-rouge">.plt</code>.</p>
+
+<blockquote>
+  <p>Uma observação, antes da nossa função <code class="language-plaintext highlighter-rouge">main</code> ser chamada, a função <code class="language-plaintext highlighter-rouge">_start</code> gerada pelo gcc ira ser executada primeiro, que ira ser responsavel ​​por tarefas como configurar os argumentos da linha de comando e o ambiente em tempo de execução (<strong>runtime</strong>).</p>
+</blockquote>
+
+<p>Como você ja notou, tivemos varias informações sobre o binário, porque os symbols nos ajudou bastante a entender o fluxo, obtemos informações importantes sobre as nossas funções, chamadas de função etc…  vamos agora remover os symbols do nosso binário, usando a ferramenta <code class="language-plaintext highlighter-rouge">strip</code>, em seguida vamos dar uma olhada no tamanho do nosso binário:</p>
+
+<p><code class="language-plaintext highlighter-rouge">execute: strip --strip-all main ; du –b main</code></p>
+
+<blockquote>
+  <p>output:</p>
+</blockquote>
+
+<p><code class="language-plaintext highlighter-rouge">14408	main</code></p>
+
+<blockquote>
+  <p>Obs: a flag <code class="language-plaintext highlighter-rouge">--strip-all</code> é responsavel por remover todos os symbols “desnecessarios” do nosso binario.</p>
+</blockquote>
+
+<p><code class="language-plaintext highlighter-rouge">15936b - 14408b = 1528b</code>, O nosso binário atualmente esta com  <code class="language-plaintext highlighter-rouge">14408b</code> de tamanho, devido a remoção dos symbols nosso binário “perdeu” <code class="language-plaintext highlighter-rouge">1528b</code>. Vamos dar uma olhada nos symbols do nosso binário …</p>
+
+<p><code class="language-plaintext highlighter-rouge">execute: readelf --syms main</code></p>
+
+<blockquote>
+  <p>output:</p>
+</blockquote>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: left">Num</th>
+      <th style="text-align: left">Value</th>
+      <th style="text-align: left">Size</th>
+      <th style="text-align: left">Type</th>
+      <th style="text-align: left">Bind</th>
+      <th style="text-align: left">Vis</th>
+      <th style="text-align: left">Ndx Name</th>
+      <th> </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: left">0</td>
+      <td style="text-align: left">0000000000000000</td>
+      <td style="text-align: left">0</td>
+      <td style="text-align: left">NOTYPE</td>
+      <td style="text-align: left">LOCAL</td>
+      <td style="text-align: left">DEFAULT</td>
+      <td style="text-align: left">UND</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td style="text-align: left">1</td>
+      <td style="text-align: left">0000000000000000</td>
+      <td style="text-align: left">0</td>
+      <td style="text-align: left">FUNC</td>
+      <td style="text-align: left">GLOBAL</td>
+      <td style="text-align: left">DEFAULT</td>
+      <td style="text-align: left">UND</td>
+      <td>_[…]@GLIBC_2.34 (2)</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">2</td>
+      <td style="text-align: left">0000000000000000</td>
+      <td style="text-align: left">0</td>
+      <td style="text-align: left">NOTYPE</td>
+      <td style="text-align: left">WEAK</td>
+      <td style="text-align: left">DEFAULT</td>
+      <td style="text-align: left">UND</td>
+      <td>_ITM_deregisterT[…]</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">3</td>
+      <td style="text-align: left">0000000000000000</td>
+      <td style="text-align: left">0</td>
+      <td style="text-align: left">FUNC</td>
+      <td style="text-align: left">GLOBAL</td>
+      <td style="text-align: left">DEFAULT</td>
+      <td style="text-align: left">UND</td>
+      <td>puts@GLIBC_2.2.5 (3)</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">4</td>
+      <td style="text-align: left">0000000000000000</td>
+      <td style="text-align: left">0</td>
+      <td style="text-align: left">NOTYPE</td>
+      <td style="text-align: left">WEAK</td>
+      <td style="text-align: left">DEFAULT</td>
+      <td style="text-align: left">UND</td>
+      <td><strong>gmon_start</strong></td>
+    </tr>
+    <tr>
+      <td style="text-align: left">5</td>
+      <td style="text-align: left">0000000000000000</td>
+      <td style="text-align: left">0</td>
+      <td style="text-align: left">NOTYPE</td>
+      <td style="text-align: left">WEAK</td>
+      <td style="text-align: left">DEFAULT</td>
+      <td style="text-align: left">UND</td>
+      <td>_ITM_registerTMC[…]</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">6</td>
+      <td style="text-align: left">0000000000000000</td>
+      <td style="text-align: left">0</td>
+      <td style="text-align: left">FUNC</td>
+      <td style="text-align: left">WEAK</td>
+      <td style="text-align: left">DEFAULT</td>
+      <td style="text-align: left">UND</td>
+      <td>[…]@GLIBC_2.2.5 (3)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Percebeu que a nossa  section <code class="language-plaintext highlighter-rouge">.symtab</code>, esta vazia, ele não conseguiu fazer o output, pós removemos os symbols… Porém a nossa section <code class="language-plaintext highlighter-rouge">.dynsym</code> continua com os symbols, por quẽ ? isso ocorre porque o linker precisa resolver em tempo de carregamento (<strong>load time</strong>) as chamadas para funções, por conta do nosso binário esta dinamicamente linkado com a biblioteca, vamos dar uma olhada no disassembly.</p>
+
+<div class="language-as highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nx">Disassembly</span> <span class="nx">of</span> <span class="nx">section</span> <span class="p">.</span><span class="nx">init</span><span class="o">:</span>
+
+<span class="mi">0000000000001000</span> <span class="o">&lt;</span><span class="p">.</span><span class="nx">init</span><span class="o">&gt;:</span>
+    <span class="mi">1000</span><span class="o">:</span>	<span class="nx">f3</span> <span class="mi">0</span><span class="nx">f</span> <span class="mi">1</span><span class="nx">e</span> <span class="nx">fa</span>          	          <span class="nx">endbr64</span> 
+    <span class="mi">1004</span><span class="o">:</span>	<span class="mi">48</span> <span class="mi">83</span> <span class="nx">ec</span> <span class="mi">08</span>          		<span class="nx">sub</span>    <span class="nx">rsp</span><span class="p">,</span><span class="mh">0x8</span>
+    <span class="mi">1008</span><span class="o">:</span>	<span class="mi">48</span> <span class="mi">8</span><span class="nx">b</span> <span class="mi">05</span> <span class="nx">d9</span> <span class="mi">2</span><span class="nx">f</span> <span class="mi">00</span> <span class="mi">00</span> 		<span class="nx">mov</span>    <span class="nx">rax</span><span class="p">,</span><span class="nx">QWORD</span> <span class="nx">PTR</span> <span class="p">[</span><span class="nx">rip</span><span class="o">+</span><span class="mh">0x2fd9</span><span class="p">]</span>        <span class="err">#</span> <span class="mi">3</span><span class="nx">fe8</span> <span class="o">&lt;</span><span class="nx">puts</span><span class="err">@</span><span class="nx">plt</span><span class="o">+</span><span class="mh">0x2fb8</span><span class="o">&gt;</span>
+    <span class="mi">100</span><span class="nx">f</span><span class="o">:</span>	<span class="mi">48</span> <span class="mi">85</span> <span class="nx">c0</span>         			<span class="nx">test</span>   <span class="nx">rax</span><span class="p">,</span><span class="nx">rax</span>
+    <span class="mi">1012</span><span class="o">:</span>	<span class="mi">74</span> <span class="mi">02</span>          		      	<span class="nx">je</span>     <span class="mi">1016</span> <span class="o">&lt;</span><span class="nx">puts</span><span class="err">@</span><span class="nx">plt</span><span class="mi">-0</span><span class="nx">x1a</span><span class="o">&gt;</span>
+    <span class="mi">1014</span><span class="o">:</span>	<span class="nx">ff</span> <span class="nx">d0</span>                		<span class="nx">call</span>   <span class="nx">rax</span>
+    <span class="mi">1016</span><span class="o">:</span>	<span class="mi">48</span> <span class="mi">83</span> <span class="nx">c4</span> <span class="mi">08</span>          		<span class="nx">add</span>    <span class="nx">rsp</span><span class="p">,</span><span class="mh">0x8</span>
+    <span class="mi">101</span><span class="nx">a</span><span class="o">:</span>	<span class="nx">c3</span>                   		<span class="nx">ret</span>    
+
+<span class="nx">Disassembly</span> <span class="nx">of</span> <span class="nx">section</span> <span class="p">.</span><span class="nx">plt</span><span class="o">:</span>
+
+<span class="mi">0000000000001020</span> <span class="o">&lt;</span><span class="nx">puts</span><span class="err">@</span><span class="nx">plt</span><span class="mi">-0</span><span class="nx">x10</span><span class="o">&gt;:</span>
+    <span class="mi">1020</span><span class="o">:</span>	<span class="nx">ff</span> <span class="mi">35</span> <span class="nx">e2</span> <span class="mi">2</span><span class="nx">f</span> <span class="mi">00</span> <span class="mi">00</span>    		    <span class="nx">push</span>   <span class="nx">QWORD</span> <span class="nx">PTR</span> <span class="p">[</span><span class="nx">rip</span><span class="o">+</span><span class="mh">0x2fe2</span><span class="p">]</span>        <span class="err">#</span> <span class="mi">4008</span> <span class="o">&lt;</span><span class="nx">puts</span><span class="err">@</span><span class="nx">plt</span><span class="o">+</span><span class="mh">0x2fd8</span><span class="o">&gt;</span>
+    <span class="mi">1026</span><span class="o">:</span>	<span class="nx">ff</span> <span class="mi">25</span> <span class="nx">e4</span> <span class="mi">2</span><span class="nx">f</span> <span class="mi">00</span> <span class="mi">00</span>    		    <span class="nx">jmp</span>    <span class="nx">QWORD</span> <span class="nx">PTR</span> <span class="p">[</span><span class="nx">rip</span><span class="o">+</span><span class="mh">0x2fe4</span><span class="p">]</span>        <span class="err">#</span> <span class="mi">4010</span> <span class="o">&lt;</span><span class="nx">puts</span><span class="err">@</span><span class="nx">plt</span><span class="o">+</span><span class="mh">0x2fe0</span><span class="o">&gt;</span>
+    <span class="mi">102</span><span class="nx">c</span><span class="o">:</span>	<span class="mi">0</span><span class="nx">f</span> <span class="mi">1</span><span class="nx">f</span> <span class="mi">40</span> <span class="mi">00</span>          		    <span class="nx">nop</span>    <span class="nx">DWORD</span> <span class="nx">PTR</span> <span class="p">[</span><span class="nx">rax</span><span class="o">+</span><span class="mh">0x0</span><span class="p">]</span>
+
+<span class="mi">0000000000001030</span> <span class="o">&lt;</span><span class="nx">puts</span><span class="err">@</span><span class="nx">plt</span><span class="o">&gt;:</span>
+    <span class="mi">1030</span><span class="o">:</span>	<span class="nx">ff</span> <span class="mi">25</span> <span class="nx">e2</span> <span class="mi">2</span><span class="nx">f</span> <span class="mi">00</span> <span class="mi">00</span>    		    <span class="nx">jmp</span>    <span class="nx">QWORD</span> <span class="nx">PTR</span> <span class="p">[</span><span class="nx">rip</span><span class="o">+</span><span class="mh">0x2fe2</span><span class="p">]</span>        <span class="err">#</span> <span class="mi">4018</span> <span class="o">&lt;</span><span class="nx">puts</span><span class="err">@</span><span class="nx">plt</span><span class="o">+</span><span class="mh">0x2fe8</span><span class="o">&gt;</span>
+    <span class="mi">1036</span><span class="o">:</span>	<span class="mi">68</span> <span class="mi">00</span> <span class="mi">00</span> <span class="mi">00</span> <span class="mi">00</span>       		    <span class="nx">push</span>   <span class="mh">0x0</span>
+    <span class="mi">103</span><span class="nx">b</span><span class="o">:</span>	<span class="nx">e9</span> <span class="nx">e0</span> <span class="nx">ff</span> <span class="nx">ff</span> <span class="nx">ff</span>       		    <span class="nx">jmp</span>    <span class="mi">1020</span> <span class="o">&lt;</span><span class="nx">puts</span><span class="err">@</span><span class="nx">plt</span><span class="mi">-0</span><span class="nx">x10</span><span class="o">&gt;</span>
+
+<span class="nx">Disassembly</span> <span class="nx">of</span> <span class="nx">section</span> <span class="p">.</span><span class="nx">text</span><span class="o">:</span>
+
+<span class="mi">0000000000001040</span> <span class="o">&lt;</span><span class="p">.</span><span class="nx">text</span><span class="o">&gt;:</span>
+    <span class="mi">1040</span><span class="o">:</span>	<span class="nx">f3</span> <span class="mi">0</span><span class="nx">f</span> <span class="mi">1</span><span class="nx">e</span> <span class="nx">fa</span>          			<span class="nx">endbr64</span> 
+    <span class="mi">1044</span><span class="o">:</span>	<span class="mi">31</span> <span class="nx">ed</span>                			<span class="nx">xor</span>    <span class="nx">ebp</span><span class="p">,</span><span class="nx">ebp</span>
+    <span class="mi">1046</span><span class="o">:</span>	<span class="mi">49</span> <span class="mi">89</span> <span class="nx">d1</span>             			<span class="nx">mov</span>    <span class="nx">r9</span><span class="p">,</span><span class="nx">rdx</span>
+    <span class="mi">1049</span><span class="o">:</span>	<span class="mi">5</span><span class="nx">e</span>                   			<span class="nx">pop</span>    <span class="nx">rsi</span>
+    <span class="mi">104</span><span class="nx">a</span><span class="o">:</span>	<span class="mi">48</span> <span class="mi">89</span> <span class="nx">e2</span>             			<span class="nx">mov</span>    <span class="nx">rdx</span><span class="p">,</span><span class="nx">rsp</span>
+    <span class="mi">104</span><span class="nx">d</span><span class="o">:</span>	<span class="mi">48</span> <span class="mi">83</span> <span class="nx">e4</span> <span class="nx">f0</span>         		 	<span class="nx">and</span>    <span class="nx">rsp</span><span class="p">,</span><span class="mh">0xfffffffffffffff0</span>
+    <span class="mi">1051</span><span class="o">:</span>	<span class="mi">50</span>                   			<span class="nx">push</span>   <span class="nx">rax</span>
+    <span class="mi">1052</span><span class="o">:</span>	<span class="mi">54</span>                   			<span class="nx">push</span>   <span class="nx">rsp</span>
+    <span class="mi">1053</span><span class="o">:</span>	<span class="mi">45</span> <span class="mi">31</span> <span class="nx">c0</span>            		 	<span class="nx">xor</span>    <span class="nx">r8d</span><span class="p">,</span><span class="nx">r8d</span>
+    <span class="mi">1056</span><span class="o">:</span>	<span class="mi">31</span> <span class="nx">c9</span>                			<span class="nx">xor</span>    <span class="nx">ecx</span><span class="p">,</span><span class="nx">ecx</span>
+    <span class="mi">1058</span><span class="o">:</span>	<span class="mi">48</span> <span class="mi">8</span><span class="nx">d</span> <span class="mi">3</span><span class="nx">d</span> <span class="nx">da</span> <span class="mi">00</span> <span class="mi">00</span> <span class="mi">00</span> 		          <span class="nx">lea</span>    <span class="nx">rdi</span><span class="p">,[</span><span class="nx">rip</span><span class="o">+</span><span class="mh">0xda</span><span class="p">]</span>        <span class="err">#</span> <span class="mi">1139</span> <span class="o">&lt;</span><span class="nx">puts</span><span class="err">@</span><span class="nx">plt</span><span class="o">+</span><span class="mh">0x109</span><span class="o">&gt;</span>
+    <span class="mi">105</span><span class="nx">f</span><span class="o">:</span>	<span class="nx">ff</span> <span class="mi">15</span> <span class="mi">73</span> <span class="mi">2</span><span class="nx">f</span> <span class="mi">00</span> <span class="mi">00</span>    		          <span class="nx">call</span>   <span class="nx">QWORD</span> <span class="nx">PTR</span> <span class="p">[</span><span class="nx">rip</span><span class="o">+</span><span class="mh">0x2f73</span><span class="p">]</span>        <span class="err">#</span> <span class="mi">3</span><span class="nx">fd8</span> <span class="o">&lt;</span><span class="nx">puts</span><span class="err">@</span><span class="nx">plt</span><span class="o">+</span><span class="mh">0x2fa8</span><span class="o">&gt;</span>
+    <span class="mi">1065</span><span class="o">:</span>	<span class="nx">f4</span>                   			<span class="nx">hlt</span>    	
+    <span class="mi">1066</span><span class="o">:</span>	<span class="mi">66</span> <span class="mi">2</span><span class="nx">e</span> <span class="mi">0</span><span class="nx">f</span> <span class="mi">1</span><span class="nx">f</span> <span class="mi">84</span> <span class="mi">00</span> <span class="mi">00</span> 		          <span class="nx">cs</span> <span class="nx">nop</span> <span class="nx">WORD</span> <span class="nx">PTR</span> <span class="p">[</span><span class="nx">rax</span><span class="o">+</span><span class="nx">rax</span><span class="o">*</span><span class="mi">1</span><span class="o">+</span><span class="mh">0x0</span><span class="p">]</span>
+    <span class="mi">106</span><span class="nx">d</span><span class="o">:</span>	<span class="mi">00</span> <span class="mi">00</span> <span class="mi">00</span> 
+    <span class="mi">1070</span><span class="o">:</span>	<span class="mi">48</span> <span class="mi">8</span><span class="nx">d</span> <span class="mi">3</span><span class="nx">d</span> <span class="nx">b9</span> <span class="mi">2</span><span class="nx">f</span> <span class="mi">00</span> <span class="mi">00</span> 		          <span class="nx">lea</span>    <span class="nx">rdi</span><span class="p">,[</span><span class="nx">rip</span><span class="o">+</span><span class="mh">0x2fb9</span><span class="p">]</span>        <span class="err">#</span> <span class="mi">4030</span> <span class="o">&lt;</span><span class="nx">puts</span><span class="err">@</span><span class="nx">plt</span><span class="o">+</span><span class="mh">0x3000</span><span class="o">&gt;</span>
+    <span class="mi">1077</span><span class="o">:</span>	<span class="mi">48</span> <span class="mi">8</span><span class="nx">d</span> <span class="mi">05</span> <span class="nx">b2</span> <span class="mi">2</span><span class="nx">f</span> <span class="mi">00</span> <span class="mi">00</span> 		          <span class="nx">lea</span>    <span class="nx">rax</span><span class="p">,[</span><span class="nx">rip</span><span class="o">+</span><span class="mh">0x2fb2</span><span class="p">]</span>        <span class="err">#</span> <span class="mi">4030</span> <span class="o">&lt;</span><span class="nx">puts</span><span class="err">@</span><span class="nx">plt</span><span class="o">+</span><span class="mh">0x3000</span><span class="o">&gt;</span>
+    <span class="mi">107</span><span class="nx">e</span><span class="o">:</span>	<span class="mi">48</span> <span class="mi">39</span> <span class="nx">f8</span>            		 	<span class="nx">cmp</span>    <span class="nx">rax</span><span class="p">,</span><span class="nx">rdi</span>
+    <span class="mi">1081</span><span class="o">:</span>	<span class="mi">74</span> <span class="mi">15</span>                			<span class="nx">je</span>     <span class="mi">1098</span> <span class="o">&lt;</span><span class="nx">puts</span><span class="err">@</span><span class="nx">plt</span><span class="o">+</span><span class="mh">0x68</span><span class="o">&gt;</span>
+    <span class="mi">1083</span><span class="o">:</span>	<span class="mi">48</span> <span class="mi">8</span><span class="nx">b</span> <span class="mi">05</span> <span class="mi">56</span> <span class="mi">2</span><span class="nx">f</span> <span class="mi">00</span> <span class="mi">00</span> 		          <span class="nx">mov</span>    <span class="nx">rax</span><span class="p">,</span><span class="nx">QWORD</span> <span class="nx">PTR</span> <span class="p">[</span><span class="nx">rip</span><span class="o">+</span><span class="mh">0x2f56</span><span class="p">]</span>        <span class="err">#</span> <span class="mi">3</span><span class="nx">fe0</span> <span class="o">&lt;</span><span class="nx">puts</span><span class="err">@</span><span class="nx">plt</span><span class="o">+</span><span class="mh">0x2fb0</span><span class="o">&gt;</span>
+    <span class="mi">108</span><span class="nx">a</span><span class="o">:</span>	<span class="mi">48</span> <span class="mi">85</span> <span class="nx">c0</span>          		   	          <span class="nx">test</span>   <span class="nx">rax</span><span class="p">,</span><span class="nx">rax</span>
+    <span class="mi">108</span><span class="nx">d</span><span class="o">:</span>	<span class="mi">74</span> <span class="mi">09</span>                			<span class="nx">je</span>     <span class="mi">1098</span> <span class="o">&lt;</span><span class="nx">puts</span><span class="err">@</span><span class="nx">plt</span><span class="o">+</span><span class="mh">0x68</span><span class="o">&gt;</span>
+    <span class="mi">108</span><span class="nx">f</span><span class="o">:</span>	<span class="nx">ff</span> <span class="nx">e0</span>                			<span class="nx">jmp</span>    <span class="nx">rax</span>
+    <span class="mi">1091</span><span class="o">:</span>	<span class="mi">0</span><span class="nx">f</span> <span class="mi">1</span><span class="nx">f</span> <span class="mi">80</span> <span class="mi">00</span> <span class="mi">00</span> <span class="mi">00</span> <span class="mi">00</span> 		          <span class="nx">nop</span>    <span class="nx">DWORD</span> <span class="nx">PTR</span> <span class="p">[</span><span class="nx">rax</span><span class="o">+</span><span class="mh">0x0</span><span class="p">]</span>
+    <span class="mi">1098</span><span class="o">:</span>	<span class="nx">c3</span>                   			<span class="nx">ret</span>    
+    <span class="mi">1099</span><span class="o">:</span>	<span class="mi">0</span><span class="nx">f</span> <span class="mi">1</span><span class="nx">f</span> <span class="mi">80</span> <span class="mi">00</span> <span class="mi">00</span> <span class="mi">00</span> <span class="mi">00</span> 		          <span class="nx">nop</span>    <span class="nx">DWORD</span> <span class="nx">PTR</span> <span class="p">[</span><span class="nx">rax</span><span class="o">+</span><span class="mh">0x0</span><span class="p">]</span>
+    <span class="mi">10</span><span class="nx">a0</span><span class="o">:</span>	<span class="mi">48</span> <span class="mi">8</span><span class="nx">d</span> <span class="mi">3</span><span class="nx">d</span> <span class="mi">89</span> <span class="mi">2</span><span class="nx">f</span> <span class="mi">00</span> <span class="mi">00</span> 		          <span class="nx">lea</span>    <span class="nx">rdi</span><span class="p">,[</span><span class="nx">rip</span><span class="o">+</span><span class="mh">0x2f89</span><span class="p">]</span>        <span class="err">#</span> <span class="mi">4030</span> <span class="o">&lt;</span><span class="nx">puts</span><span class="err">@</span><span class="nx">plt</span><span class="o">+</span><span class="mh">0x3000</span><span class="o">&gt;</span>
+    <span class="mi">10</span><span class="nx">a7</span><span class="o">:</span>	<span class="mi">48</span> <span class="mi">8</span><span class="nx">d</span> <span class="mi">35</span> <span class="mi">82</span> <span class="mi">2</span><span class="nx">f</span> <span class="mi">00</span> <span class="mi">00</span> 		          <span class="nx">lea</span>    <span class="nx">rsi</span><span class="p">,[</span><span class="nx">rip</span><span class="o">+</span><span class="mh">0x2f82</span><span class="p">]</span>        <span class="err">#</span> <span class="mi">4030</span> <span class="o">&lt;</span><span class="nx">puts</span><span class="err">@</span><span class="nx">plt</span><span class="o">+</span><span class="mh">0x3000</span><span class="o">&gt;</span>
+    <span class="mi">10</span><span class="nx">ae</span><span class="o">:</span>	<span class="mi">48</span> <span class="mi">29</span> <span class="nx">fe</span>             			<span class="nx">sub</span>    <span class="nx">rsi</span><span class="p">,</span><span class="nx">rdi</span>
+    <span class="mi">10</span><span class="nx">b1</span><span class="o">:</span>	<span class="mi">48</span> <span class="mi">89</span> <span class="nx">f0</span>             			<span class="nx">mov</span>    <span class="nx">rax</span><span class="p">,</span><span class="nx">rsi</span>
+    <span class="mi">10</span><span class="nx">b4</span><span class="o">:</span>	<span class="mi">48</span> <span class="nx">c1</span> <span class="nx">ee</span> <span class="mi">3</span><span class="nx">f</span>         		 	<span class="nx">shr</span>    <span class="nx">rsi</span><span class="p">,</span><span class="mh">0x3f</span>
+    <span class="mi">10</span><span class="nx">b8</span><span class="o">:</span>	<span class="mi">48</span> <span class="nx">c1</span> <span class="nx">f8</span> <span class="mi">03</span>         		 	<span class="nx">sar</span>    <span class="nx">rax</span><span class="p">,</span><span class="mh">0x3</span>
+    <span class="mi">10</span><span class="nx">bc</span><span class="o">:</span>	<span class="mi">48</span> <span class="mi">01</span> <span class="nx">c6</span>             			<span class="nx">add</span>    <span class="nx">rsi</span><span class="p">,</span><span class="nx">rax</span>
+    <span class="mi">10</span><span class="nx">bf</span><span class="o">:</span>	<span class="mi">48</span> <span class="nx">d1</span> <span class="nx">fe</span>             			<span class="nx">sar</span>    <span class="nx">rsi</span><span class="p">,</span><span class="mi">1</span>
+    <span class="mi">10</span><span class="nx">c2</span><span class="o">:</span>	<span class="mi">74</span> <span class="mi">14</span>                			<span class="nx">je</span>     <span class="mi">10</span><span class="nx">d8</span> <span class="o">&lt;</span><span class="nx">puts</span><span class="err">@</span><span class="nx">plt</span><span class="o">+</span><span class="mh">0xa8</span><span class="o">&gt;</span>
+    <span class="mi">10</span><span class="nx">c4</span><span class="o">:</span>	<span class="mi">48</span> <span class="mi">8</span><span class="nx">b</span> <span class="mi">05</span> <span class="mi">25</span> <span class="mi">2</span><span class="nx">f</span> <span class="mi">00</span> <span class="mi">00</span> 		          <span class="nx">mov</span>    <span class="nx">rax</span><span class="p">,</span><span class="nx">QWORD</span> <span class="nx">PTR</span> <span class="p">[</span><span class="nx">rip</span><span class="o">+</span><span class="mh">0x2f25</span><span class="p">]</span>        <span class="err">#</span> <span class="mi">3</span><span class="nx">ff0</span> <span class="o">&lt;</span><span class="nx">puts</span><span class="err">@</span><span class="nx">plt</span><span class="o">+</span><span class="mh">0x2fc0</span><span class="o">&gt;</span>
+    <span class="mi">10</span><span class="nx">cb</span><span class="o">:</span>	<span class="mi">48</span> <span class="mi">85</span> <span class="nx">c0</span>             			<span class="nx">test</span>   <span class="nx">rax</span><span class="p">,</span><span class="nx">rax</span>
+    <span class="mi">10</span><span class="nx">ce</span><span class="o">:</span>	<span class="mi">74</span> <span class="mi">08</span>                			<span class="nx">je</span>     <span class="mi">10</span><span class="nx">d8</span> <span class="o">&lt;</span><span class="nx">puts</span><span class="err">@</span><span class="nx">plt</span><span class="o">+</span><span class="mh">0xa8</span><span class="o">&gt;</span>
+    <span class="mi">10</span><span class="nx">d0</span><span class="o">:</span>	<span class="nx">ff</span> <span class="nx">e0</span>                			<span class="nx">jmp</span>    <span class="nx">rax</span>
+    <span class="mi">10</span><span class="nx">d2</span><span class="o">:</span>	<span class="mi">66</span> <span class="mi">0</span><span class="nx">f</span> <span class="mi">1</span><span class="nx">f</span> <span class="mi">44</span> <span class="mi">00</span> <span class="mi">00</span>    		          <span class="nx">nop</span>    <span class="nx">WORD</span> <span class="nx">PTR</span> <span class="p">[</span><span class="nx">rax</span><span class="o">+</span><span class="nx">rax</span><span class="o">*</span><span class="mi">1</span><span class="o">+</span><span class="mh">0x0</span><span class="p">]</span>
+    <span class="mi">10</span><span class="nx">d8</span><span class="o">:</span>	<span class="nx">c3</span>                   			<span class="nx">ret</span>    	
+    <span class="mi">10</span><span class="nx">d9</span><span class="o">:</span>	<span class="mi">0</span><span class="nx">f</span> <span class="mi">1</span><span class="nx">f</span> <span class="mi">80</span> <span class="mi">00</span> <span class="mi">00</span> <span class="mi">00</span> <span class="mi">00</span> 	    	          <span class="nx">nop</span>    <span class="nx">DWORD</span> <span class="nx">PTR</span> <span class="p">[</span><span class="nx">rax</span><span class="o">+</span><span class="mh">0x0</span><span class="p">]</span>
+    <span class="mi">10</span><span class="nx">e0</span><span class="o">:</span>	<span class="nx">f3</span> <span class="mi">0</span><span class="nx">f</span> <span class="mi">1</span><span class="nx">e</span> <span class="nx">fa</span>          			<span class="nx">endbr64</span> 
+    <span class="mi">10</span><span class="nx">e4</span><span class="o">:</span>	<span class="mi">80</span> <span class="mi">3</span><span class="nx">d</span> <span class="mi">45</span> <span class="mi">2</span><span class="nx">f</span> <span class="mi">00</span> <span class="mi">00</span> <span class="mi">00</span>    		          <span class="nx">cmp</span>    <span class="nx">BYTE</span> <span class="nx">PTR</span> <span class="p">[</span><span class="nx">rip</span><span class="o">+</span><span class="mh">0x2f45</span><span class="p">],</span><span class="mh">0x0</span>        <span class="err">#</span> <span class="mi">4030</span> <span class="o">&lt;</span><span class="nx">puts</span><span class="err">@</span><span class="nx">plt</span><span class="o">+</span><span class="mh">0x3000</span><span class="o">&gt;</span>
+    <span class="mi">10</span><span class="nx">eb</span><span class="o">:</span>	<span class="mi">75</span> <span class="mi">33</span>                			<span class="nx">jne</span>    <span class="mi">1120</span> <span class="o">&lt;</span><span class="nx">puts</span><span class="err">@</span><span class="nx">plt</span><span class="o">+</span><span class="mh">0xf0</span><span class="o">&gt;</span>
+    <span class="mi">10</span><span class="nx">ed</span><span class="o">:</span>	<span class="mi">55</span>                   			<span class="nx">push</span>   <span class="nx">rbp</span>
+    <span class="mi">10</span><span class="nx">ee</span><span class="o">:</span>	<span class="mi">48</span> <span class="mi">83</span> <span class="mi">3</span><span class="nx">d</span> <span class="mi">02</span> <span class="mi">2</span><span class="nx">f</span> <span class="mi">00</span> <span class="mi">00</span> 		          <span class="nx">cmp</span>    <span class="nx">QWORD</span> <span class="nx">PTR</span> <span class="p">[</span><span class="nx">rip</span><span class="o">+</span><span class="mh">0x2f02</span><span class="p">],</span><span class="mh">0x0</span>   <span class="err">#</span> <span class="mi">3</span><span class="nx">ff8</span> <span class="o">&lt;</span><span class="nx">puts</span><span class="err">@</span><span class="nx">plt</span><span class="o">+</span><span class="mh">0x2fc8</span><span class="o">&gt;</span>
+    <span class="mi">10</span><span class="nx">f5</span><span class="o">:</span>	<span class="mi">00</span> 
+    <span class="mi">10</span><span class="nx">f6</span><span class="o">:</span>	<span class="mi">48</span> <span class="mi">89</span> <span class="nx">e5</span>             			<span class="nx">mov</span>    <span class="nx">rbp</span><span class="p">,</span><span class="nx">rsp</span>
+    <span class="mi">10</span><span class="nx">f9</span><span class="o">:</span>	<span class="mi">74</span> <span class="mi">0</span><span class="nx">d</span>                			<span class="nx">je</span>     <span class="mi">1108</span> <span class="o">&lt;</span><span class="nx">puts</span><span class="err">@</span><span class="nx">plt</span><span class="o">+</span><span class="mh">0xd8</span><span class="o">&gt;</span>
+    <span class="mi">10</span><span class="nx">fb</span><span class="o">:</span>	<span class="mi">48</span> <span class="mi">8</span><span class="nx">b</span> <span class="mi">3</span><span class="nx">d</span> <span class="mi">26</span> <span class="mi">2</span><span class="nx">f</span> <span class="mi">00</span> <span class="mi">00</span> 		          <span class="nx">mov</span>    <span class="nx">rdi</span><span class="p">,</span><span class="nx">QWORD</span> <span class="nx">PTR</span> <span class="p">[</span><span class="nx">rip</span><span class="o">+</span><span class="mh">0x2f26</span><span class="p">]</span>        <span class="err">#</span> <span class="mi">4028</span> <span class="o">&lt;</span><span class="nx">puts</span><span class="err">@</span><span class="nx">plt</span><span class="o">+</span><span class="mh">0x2ff8</span><span class="o">&gt;</span>
+    <span class="mi">1102</span><span class="o">:</span>	<span class="nx">ff</span> <span class="mi">15</span> <span class="nx">f0</span> <span class="mi">2</span><span class="nx">e</span> <span class="mi">00</span> <span class="mi">00</span>    		          <span class="nx">call</span>   <span class="nx">QWORD</span> <span class="nx">PTR</span> <span class="p">[</span><span class="nx">rip</span><span class="o">+</span><span class="mh">0x2ef0</span><span class="p">]</span>               <span class="err">#</span> <span class="mi">3</span><span class="nx">ff8</span> <span class="o">&lt;</span><span class="nx">puts</span><span class="err">@</span><span class="nx">plt</span><span class="o">+</span><span class="mh">0x2fc8</span><span class="o">&gt;</span>
+    <span class="mi">1108</span><span class="o">:</span>	<span class="nx">e8</span> <span class="mi">63</span> <span class="nx">ff</span> <span class="nx">ff</span> <span class="nx">ff</span>      		 	<span class="nx">call</span>   <span class="mi">1070</span> <span class="o">&lt;</span><span class="nx">puts</span><span class="err">@</span><span class="nx">plt</span><span class="o">+</span><span class="mh">0x40</span><span class="o">&gt;</span>
+    <span class="mi">110</span><span class="nx">d</span><span class="o">:</span>	<span class="nx">c6</span> <span class="mi">05</span> <span class="mi">1</span><span class="nx">c</span> <span class="mi">2</span><span class="nx">f</span> <span class="mi">00</span> <span class="mi">00</span> <span class="mi">01</span> 		          <span class="nx">mov</span>    <span class="nx">BYTE</span> <span class="nx">PTR</span> <span class="p">[</span><span class="nx">rip</span><span class="o">+</span><span class="mh">0x2f1c</span><span class="p">],</span><span class="mh">0x1</span>           <span class="err">#</span> <span class="mi">4030</span> <span class="o">&lt;</span><span class="nx">puts</span><span class="err">@</span><span class="nx">plt</span><span class="o">+</span><span class="mh">0x3000</span><span class="o">&gt;</span>
+    <span class="mi">1114</span><span class="o">:</span>	<span class="mi">5</span><span class="nx">d</span>                   			<span class="nx">pop</span>    <span class="nx">rbp</span>
+    <span class="mi">1115</span><span class="o">:</span>	<span class="nx">c3</span>                   			<span class="nx">ret</span>    
+    <span class="mi">1116</span><span class="o">:</span>	<span class="mi">66</span> <span class="mi">2</span><span class="nx">e</span> <span class="mi">0</span><span class="nx">f</span> <span class="mi">1</span><span class="nx">f</span> <span class="mi">84</span> <span class="mi">00</span> <span class="mi">00</span> 		          <span class="nx">cs</span> <span class="nx">nop</span> <span class="nx">WORD</span> <span class="nx">PTR</span> <span class="p">[</span><span class="nx">rax</span><span class="o">+</span><span class="nx">rax</span><span class="o">*</span><span class="mi">1</span><span class="o">+</span><span class="mh">0x0</span><span class="p">]</span>
+    <span class="mi">111</span><span class="nx">d</span><span class="o">:</span>	<span class="mi">00</span> <span class="mi">00</span> <span class="mi">00</span> 
+    <span class="mi">1120</span><span class="o">:</span>	<span class="nx">c3</span>                   			<span class="nx">ret</span>    
+    <span class="mi">1121</span><span class="o">:</span>	<span class="mi">66</span> <span class="mi">66</span> <span class="mi">2</span><span class="nx">e</span> <span class="mi">0</span><span class="nx">f</span> <span class="mi">1</span><span class="nx">f</span> <span class="mi">84</span> <span class="mi">00</span> 		          <span class="nx">data16</span> <span class="nx">cs</span> <span class="nx">nop</span> <span class="nx">WORD</span> <span class="nx">PTR</span> <span class="p">[</span><span class="nx">rax</span><span class="o">+</span><span class="nx">rax</span><span class="o">*</span><span class="mi">1</span><span class="o">+</span><span class="mh">0x0</span><span class="p">]</span>
+    <span class="mi">1128</span><span class="o">:</span>	<span class="mi">00</span> <span class="mi">00</span> <span class="mi">00</span> <span class="mi">00</span> 
+    <span class="mi">112</span><span class="nx">c</span><span class="o">:</span>	<span class="mi">0</span><span class="nx">f</span> <span class="mi">1</span><span class="nx">f</span> <span class="mi">40</span> <span class="mi">00</span>         		 	<span class="nx">nop</span>    <span class="nx">DWORD</span> <span class="nx">PTR</span> <span class="p">[</span><span class="nx">rax</span><span class="o">+</span><span class="mh">0x0</span><span class="p">]</span>
+    <span class="mi">1130</span><span class="o">:</span>	<span class="nx">f3</span> <span class="mi">0</span><span class="nx">f</span> <span class="mi">1</span><span class="nx">e</span> <span class="nx">fa</span>          			<span class="nx">endbr64</span> 
+    <span class="mi">1134</span><span class="o">:</span>	<span class="nx">e9</span> <span class="mi">67</span> <span class="nx">ff</span> <span class="nx">ff</span> <span class="nx">ff</span>       			<span class="nx">jmp</span>    <span class="mi">10</span><span class="nx">a0</span> <span class="o">&lt;</span><span class="nx">puts</span><span class="err">@</span><span class="nx">plt</span><span class="o">+</span><span class="mh">0x70</span><span class="o">&gt;</span>
+    <span class="mi">1139</span><span class="o">:</span>	<span class="mi">55</span>                   			<span class="nx">push</span>   <span class="nx">rbp</span>
+    <span class="mi">113</span><span class="nx">a</span><span class="o">:</span>	<span class="mi">48</span> <span class="mi">89</span> <span class="nx">e5</span>             			<span class="nx">mov</span>    <span class="nx">rbp</span><span class="p">,</span><span class="nx">rsp</span>
+    <span class="mi">113</span><span class="nx">d</span><span class="o">:</span>	<span class="mi">48</span> <span class="mi">8</span><span class="nx">d</span> <span class="mi">05</span> <span class="nx">c0</span> <span class="mi">0</span><span class="nx">e</span> <span class="mi">00</span> <span class="mi">00</span> 		          <span class="nx">lea</span>    <span class="nx">rax</span><span class="p">,[</span><span class="nx">rip</span><span class="o">+</span><span class="mh">0xec0</span><span class="p">]</span>        <span class="err">#</span> <span class="mi">2004</span> <span class="o">&lt;</span><span class="nx">puts</span><span class="err">@</span><span class="nx">plt</span><span class="o">+</span><span class="mh">0xfd4</span><span class="o">&gt;</span>
+    <span class="mi">1144</span><span class="o">:</span>	<span class="mi">48</span> <span class="mi">89</span> <span class="nx">c7</span>            		 	<span class="nx">mov</span>    <span class="nx">rdi</span><span class="p">,</span><span class="nx">rax</span>
+    <span class="mi">1147</span><span class="o">:</span>	<span class="nx">e8</span> <span class="nx">e4</span> <span class="nx">fe</span> <span class="nx">ff</span> <span class="nx">ff</span>       			<span class="nx">call</span>   <span class="mi">1030</span> <span class="o">&lt;</span><span class="nx">puts</span><span class="err">@</span><span class="nx">plt</span><span class="o">&gt;</span>
+    <span class="mi">114</span><span class="nx">c</span><span class="o">:</span>	<span class="nx">b8</span> <span class="mi">00</span> <span class="mi">00</span> <span class="mi">00</span> <span class="mi">00</span>       		          <span class="nx">mov</span>    <span class="nx">eax</span><span class="p">,</span><span class="mh">0x0</span>
+    <span class="mi">1151</span><span class="o">:</span>	<span class="mi">5</span><span class="nx">d</span>                   			<span class="nx">pop</span>    <span class="nx">rbp</span>
+    <span class="mi">1152</span><span class="o">:</span>	<span class="nx">c3</span>                   			<span class="nx">ret</span>    
+
+<span class="nx">Disassembly</span> <span class="nx">of</span> <span class="nx">section</span> <span class="p">.</span><span class="nx">fini</span><span class="o">:</span>
+
+<span class="mi">0000000000001154</span> <span class="o">&lt;</span><span class="p">.</span><span class="nx">fini</span><span class="o">&gt;:</span>
+    <span class="mi">1154</span><span class="o">:</span>	<span class="nx">f3</span> <span class="mi">0</span><span class="nx">f</span> <span class="mi">1</span><span class="nx">e</span> <span class="nx">fa</span>          			<span class="nx">endbr64</span> 
+    <span class="mi">1158</span><span class="o">:</span>	<span class="mi">48</span> <span class="mi">83</span> <span class="nx">ec</span> <span class="mi">08</span>         	 		<span class="nx">sub</span>    <span class="nx">rsp</span><span class="p">,</span><span class="mh">0x8</span>
+    <span class="mi">115</span><span class="nx">c</span><span class="o">:</span>	<span class="mi">48</span> <span class="mi">83</span> <span class="nx">c4</span> <span class="mi">08</span>          		          <span class="nx">add</span>    <span class="nx">rsp</span><span class="p">,</span><span class="mh">0x8</span>
+    <span class="mi">1160</span><span class="o">:</span>	<span class="nx">c3</span>                   			<span class="nx">ret</span> 
+	
+</code></pre></div></div>
+<p>Notou alguma diferença ? Perceba que nossa função <code class="language-plaintext highlighter-rouge">main</code>, se encontra na section <code class="language-plaintext highlighter-rouge">.text</code>, porém não a symbols identificando ela, chamadas de funções que estavam explicitos no disassembly não são mais visiveis, precisamos analisar o binário com mais atenção…</p>
+
+<p>Para complementar o artigo, irei disponibilizar um video bastante interresante, no qual tem como intuito encontrar a <code class="language-plaintext highlighter-rouge">main</code> nos binários ELF, feito pelo
+<a href="https://www.youtube.com/c/PapoBin%C3%A1rio">mente binaria</a>.</p>
+
+<p><a href="https://youtu.be/63XrejF4sdg"><img src="https://i3.ytimg.com/vi/63XrejF4sdg/hqdefault.jpg" alt="IMAGE ALT TEXT HERE" /></a></p>
+
+<p><br /></p>
+<blockquote>
+  <p>Citações do artigo</p>
+  <ol>
+    <li><a href="https://www.amazon.com.br/Practical-Binary-Analysis-Instrumentation-Disassembly/dp/1593279124">Practical Binary Analysis 1st Edition</a></li>
+    <li><a href="https://www.youtube.com/watch?v=oZeezrNHxVo&amp;list=PLIfZMtpPYFP5qaS2RFQxcNVkmJLGQwyKE">Programação moderna em C</a></li>
+  </ol>
+</blockquote>
+
+
+        <div id="footer">
+          <hr />
+          <span class="credits left">Projeto mantido por <a href="https://github.com/VitorMob">VitorMob</a></span>
+          <span class="credits right">Hospedado no GitHub Pages &mdash; Tema <a href="https://draculatheme.com/">Dracula</a></span>
+        </div>
+      </section>
+      <a href="../" class="button">Voltar</a>
+
+    </div>
+
+    
+  </body>
+
+</html>
