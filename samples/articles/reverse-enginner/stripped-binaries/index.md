@@ -83,7 +83,7 @@ int main( void )
 Utilizamos uma tool [readelf](https://man7.org/linux/man-pages/man1/readelf.1.html) bastante util para parser de ELF, podemos obter variadas informações em relação ao binário, 
  `Section Headers, Program Header …` porém esse não é o nosso foco no momento. apenas obtemos as informações da nossa section `.symtab`. No canto esquerdo chamado `Value` podemos 
 visualizar o offset, em seguida ele nós traz a informação do que se trata cada symbol, podemos notar o symbol **(32)** offset `0000000000001139` Name `main` com o Type `FUNC` 
-ou seja este symbol se trata de uma função, percebe-se que ele entraga o tamanho  da nossa main no campo `Size` contendo `26 bytes`, preste bastante atenção, percebe-se que o offset do nosso symbol **(22)** Name `puts@GLIBC_2.2.5` ainda não foi resolvido, porque o linker precisa resolver em load time, isso ocorre porque o nosso binário esta linkado dinamicamente com a biblioteca, não irei entrar em detalhes em relação a linkagem. 
+ou seja este symbol se trata de uma função, percebe-se que ele entraga o tamanho  da nossa `main` no campo `Size` contendo `26 bytes`, preste bastante atenção, percebe-se que o offset do nosso symbol **(22)** Name `puts@GLIBC_2.2.5` ainda não foi resolvido, porque o linker precisa resolver em load time, isso ocorre porque o nosso binário esta linkado dinamicamente com a biblioteca, não irei entrar em detalhes em relação a linkagem. 
 
 > Recomendo fazer proveito do [manpages](https://man7.org/linux/man-pages/man5/elf.5.html) no tópico `elf` para verificar o que cada symbol representa no nosso binário. 
 
